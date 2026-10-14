@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+python-dotenv
+apify-client
+groq
+supabase
+pydantic
