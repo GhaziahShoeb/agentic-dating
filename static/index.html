@@ -1,16 +1,21 @@
 <!doctype html>
 <html lang="en">
+
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <title>Agentic Dating</title>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+
 <style>
 :root{--bg:#EDEFF7;--card:#fff;--ink:#16183A;--muted:#5C6080;--line:#D5D9EA;
 --a:#5B3FD1;--a-t:#E3DDFA;--b:#C2305F;--b-t:#F8DCE6;--ok:#1F7A5C;--err:#B3261E;
 --r:12px;--head:"Bricolage Grotesque",system-ui,sans-serif;--body:"DM Sans",system-ui,sans-serif}
+
 *{box-sizing:border-box}
 html{scroll-padding-top:70px}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body)}
@@ -99,123 +104,294 @@ label{font-weight:700;font-size:14px;display:grid;gap:6px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
+
 <body>
+
 <header><div class="bar">
 <a class="logo" href="#/">Agentic<i>Dating</i></a>
 <nav><a href="#/" id="n1">People</a><a href="#/add" id="n2">Add a person</a></nav>
 </div></header>
+
 <main id="app"></main>
+
 <script>
+
 const app=document.getElementById("app");
+
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
 const api=async(u,o)=>{const r=await fetch(u,o);const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||"Request failed");return d;};
+
 const TINT=["#DCD6F7","#F6D5E0","#D2E8E4","#F3E6C4","#D5E0F5","#E7D3EE"];
+
 const av=(n,big)=>`<span class="av${big?" big":""}" style="background:${TINT[[...n].reduce((a,c)=>a+c.charCodeAt(0),0)%6]}">${esc(n.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase())}</span>`;
+
 const list=x=>x==null?[]:(Array.isArray(x)?x:[x]).map(i=>typeof i==="string"?{trait:i}:i).filter(i=>i&&i.trait);
+
 const SECS=[["needs","Needs"],["hobbies","Hobbies"],["interests","Interests"],["values","Values"],["communication_style","Communication style"],["looking_for_in_a_partner","Would suit them","inferred"],["dealbreakers","Dealbreakers"]];
+
 const nav=h=>{document.getElementById("n1").className=h==="p"?"on":"";document.getElementById("n2").className=h==="add"?"on":"";};
+
 const fail=e=>{app.innerHTML=`<div class="err">${esc(e.message)}</div>`;};
 
+
 async function home(){
-  nav("p");app.innerHTML=`<p class="muted">Loading people...</p>`;
+
+  nav("p");
+  app.innerHTML=`<p class="muted">Loading people...</p>`;
+
   const [s,ppl]=await Promise.all([api("/api/stats"),api("/api/people")]);
+
   const draw=()=>{
+
     const q=document.getElementById("q").value.toLowerCase(),g=document.getElementById("g").value;
+
     const f=ppl.filter(p=>(!g||p.gender===g)&&(p.name+" "+(p.headline||"")).toLowerCase().includes(q));
+
     document.getElementById("grid").innerHTML=f.map(p=>`<a class="tile" href="#/p/${p.id}">
+
       <div class="h">${av(p.name)}<b>${esc(p.name)}</b></div>
+
       <span class="clamp">${esc(p.headline||p.summary||"")}</span>
+
       <small>${p.dates} date${p.dates===1?"":"s"}</small></a>`).join("")||`<p class="muted">No one matches that search.</p>`;
+
   };
+
   app.innerHTML=`<h1>${s.people} agents. ${s.dates} dates.</h1>
+
   <p class="muted" style="max-width:60ch">Each person is an agent built from their LinkedIn and Instagram. Open a profile to see what the agent found, then see who their agent liked best.</p>
+
   ${s.best?`<div class="best"><b>${s.best.mutual}</b><span>Best match so far: ${esc(s.best.a)} and ${esc(s.best.b)}</span><a class="btn alt" href="#/d/${s.best.id}">Watch the date</a></div>`:""}
+
   <div class="tools"><input id="q" placeholder="Search by name or job" aria-label="Search"><select id="g" aria-label="Filter"><option value="">Everyone</option><option value="woman">Women</option><option value="man">Men</option></select></div>
+
   <div class="grid" id="grid"></div>`;
-  document.getElementById("q").oninput=draw;document.getElementById("g").onchange=draw;draw();
+
+  document.getElementById("q").oninput=draw;
+  document.getElementById("g").onchange=draw;
+  draw();
+
 }
 
+
 async function profile(id,tab){
-  nav("p");app.innerHTML=`<p class="muted">Loading profile...</p>`;
+
+  nav("p");
+  app.innerHTML=`<p class="muted">Loading profile...</p>`;
+
   const p=await api("/api/people/"+id),pr=p.profile||{};
+
+  const fix=i=>{
+    if(typeof i==="string"){
+      const s=i.trim();
+      if(s[0]==="{"){
+        try{return JSON.parse(s)}catch(e){}
+      }
+      return {trait:i};
+    }
+    return i;
+  };
+
+  const list=x=>x==null?[]:(Array.isArray(x)?x:[x]).map(fix).filter(i=>i&&i.trait);
+
   const body=tab==="matches"?await matchesView(id):`
     ${pr.summary?`<p class="summary">${esc(pr.summary)}</p>`:""}
-    <div class="secs">${SECS.map(([k,t,tag])=>{const it=list(pr[k]);
-      return `<section class="sec"><h3>${t}${tag?`<span class="tag">${tag}</span>`:""}</h3>${it.length?`<ul>${it.map(i=>`<li><b>${esc(i.trait)}</b>${i.evidence?`<q>${esc(typeof i.evidence==="string"?i.evidence:JSON.stringify(i.evidence))}</q>`:""}</li>`).join("")}</ul>`:`<p class="muted">Nothing in the profiles supports this.</p>`}</section>`}).join("")}</div>`;
+    <div class="secs">${SECS.map(([k,t,tag])=>{
+      const it=list(pr[k]);
+      return `<section class="sec">
+        <h2>${t}${tag?`<span class="tag">Inferred</span>`:""}</h2>
+        <ul>${it.map(i=>`<li><b>${esc(i.trait)}</b>${i.evidence?`<q>${esc(i.evidence)}</q>`:""}</li>`).join("")}</ul>
+      </section>`;
+    }).join("")}</div>
+  `;
+
   app.innerHTML=`<div class="phead">${av(p.name,1)}<div><h1>${esc(p.name)}</h1>
     <div class="muted">${esc(p.headline||"")}${p.location?` &nbsp;|&nbsp; ${esc(p.location)}`:""}</div>
     <div class="links"><a href="${esc(p.linkedin_url)}" target="_blank" rel="noopener">LinkedIn</a><a href="${esc(p.instagram_url)}" target="_blank" rel="noopener">Instagram</a></div></div></div>
     <div class="tabs"><a href="#/p/${id}" class="${tab==="matches"?"":"on"}">Profile</a><a href="#/p/${id}/matches" class="${tab==="matches"?"on":""}">Best matches</a></div>${body}`;
-  const rb=document.getElementById("rundates");if(rb)rb.onclick=()=>track(api("/api/people/"+id+"/dates",{method:"POST"}),document.getElementById("jobbox"),()=>profile(id,"matches"));
+
+  const rb=document.getElementById("rundates");
+
+  if(rb)rb.onclick=()=>track(
+    api("/api/people/"+id+"/dates",{method:"POST"}),
+    document.getElementById("jobbox"),
+    ()=>profile(id,"matches")
+  );
+
 }
+
 
 async function matchesView(id){
+
   const m=await api("/api/people/"+id+"/matches");
+
   const more=`<div id="jobbox" style="margin-top:20px">${m.length<3?`<div class="empty"><b>${m.length?"Only "+m.length+" date"+(m.length>1?"s":""):"No dates yet"}.</b><p class="muted">Send this agent on dates with the most similar people.</p><button class="btn" id="rundates">Run dates</button></div>`:""}</div>`;
+
   if(!m.length)return more;
+
   return `<div class="rows">${m.map((r,i)=>`<div class="row"><div class="rank">${i+1}</div>
+
     <div><a class="nm" href="#/p/${r.other_id}">${esc(r.other)}</a><div class="muted" style="font-size:14px">${esc(r.headline||"")}</div>
+
     <p>${esc(r.my_note||"")}</p><p><a href="#/d/${r.date_id}"><b>Watch the date</b></a></p></div>
+
     <div class="sc"><b>${r.mutual}</b><small>match score</small><div class="bar2"><i style="width:${r.mutual}%"></i></div>
+
     <small>You gave ${r.my_score}. They gave ${r.their_score}.</small></div></div>`).join("")}</div>${more}`;
+
 }
+
 
 async function dateView(id){
-  nav("p");app.innerHTML=`<p class="muted">Loading date...</p>`;
+
+  nav("p");
+  app.innerHTML=`<p class="muted">Loading date...</p>`;
+
   const d=await api("/api/dates/"+id);
+
   const msg=m=>`<div class="m ${m.who===d.a_name?"l":"r"}"><small>${esc(m.who)}</small>${esc(m.text)}</div>`;
+
   app.innerHTML=`<h1>${esc(d.a_name)} meets ${esc(d.b_name)}</h1>
+
   <p class="muted">Two agents, each speaking only from its own person's LinkedIn and Instagram.</p>
+
   <div class="vs"><div class="l"><b>${esc(d.a_name)}</b><span>${d.a_score}</span></div><div class="r"><b>${esc(d.b_name)}</b><span>${d.b_score}</span></div></div>
+
   <p><button class="btn alt" id="rp">Replay the date</button> &nbsp; <span class="muted">Match score ${Math.round(d.mutual)}</span></p>
+
   <div class="chat" id="chat">${d.transcript.map(msg).join("")}</div>
+
   <div class="why">${[[d.a_name,d.a_plan,d.a_detail,d.a_note],[d.b_name,d.b_plan,d.b_detail,d.b_note]].map(([n,pl,dt,nt])=>`<div><h3>${esc(n)}'s agent</h3>${pl?`<p class="muted"><b>Plan:</b> ${esc(pl)}</p>`:""}${dt?`<ul class="det">${["values","lifestyle","communication","dealbreakers"].filter(k=>dt[k]!=null).map(k=>`<li><span>${k}</span><div class="bar2"><i style="width:${dt[k]}%"></i></div><b>${dt[k]}</b></li>`).join("")}</ul>`:""}<p>${esc(nt)}</p></div>`).join("")}</div>
+
   <p style="margin-top:22px"><a href="#/p/${d.a_id}/matches">${esc(d.a_name)}'s matches</a> &nbsp;|&nbsp; <a href="#/p/${d.b_id}/matches">${esc(d.b_name)}'s matches</a></p>`;
-  document.getElementById("rp").onclick=()=>{const c=document.getElementById("chat");c.innerHTML="";
-    d.transcript.forEach((m,i)=>setTimeout(()=>{c.insertAdjacentHTML("beforeend",msg(m).replace('class="m ','class="m in '))},i*1400));};
+
+  document.getElementById("rp").onclick=()=>{
+
+    const c=document.getElementById("chat");
+    c.innerHTML="";
+
+    d.transcript.forEach((m,i)=>setTimeout(()=>{
+      c.insertAdjacentHTML("beforeend",msg(m).replace('class="m ','class="m in '));
+    },i*1400));
+
+  };
+
 }
+
 
 const STEPS=["Reading LinkedIn and Instagram","Writing the profile","Going on dates"];
+
 function track(start,box,done){
+
   box.innerHTML=`<p class="muted">Starting...</p>`;
+
   start.then(r=>{
-    if(r.existing){location.hash="#/p/"+r.existing;return;}
+
+    if(r.existing){
+      location.hash="#/p/"+r.existing;
+      return;
+    }
+
     const t=setInterval(async()=>{
-      try{const j=await api("/api/jobs/"+r.job);
+
+      try{
+        const j=await api("/api/jobs/"+r.job);
+
         const cur=j.step<=1?0:j.step===2?1:2;
-        if(j.status==="error"){clearInterval(t);box.innerHTML=`<div class="err">${esc(j.msg)}</div>`;return;}
-        if(j.status==="done"){clearInterval(t);done(j);return;}
+
+        if(j.status==="error"){
+          clearInterval(t);
+          box.innerHTML=`<div class="err">${esc(j.msg)}</div>`;
+          return;
+        }
+
+        if(j.status==="done"){
+          clearInterval(t);
+          done(j);
+          return;
+        }
+
         box.innerHTML=`<ul class="steps">${STEPS.map((s,i)=>`<li class="${i<cur?"ok":i===cur?"now":""}"><span class="dot"></span>${i===cur&&i===2?esc(j.msg):s}</li>`).join("")}</ul>
+
         ${j.person_id?`<p><a href="#/p/${j.person_id}">Profile is ready. Open it now.</a></p>`:""}`;
-      }catch(e){clearInterval(t);box.innerHTML=`<div class="err">${esc(e.message)}</div>`;}
+
+      }catch(e){
+        clearInterval(t);
+        box.innerHTML=`<div class="err">${esc(e.message)}</div>`;
+      }
+
     },3000);
-  }).catch(e=>{box.innerHTML=`<div class="err">${esc(e.message)}</div>`;});
+
+  }).catch(e=>{
+    box.innerHTML=`<div class="err">${esc(e.message)}</div>`;
+  });
+
 }
+
 
 function add(){
+
   nav("add");
+
   app.innerHTML=`<h1>Add a person</h1><p class="muted" style="max-width:56ch">Paste their LinkedIn and a public Instagram. The agent reads both, writes the profile, then goes on dates. This takes a few minutes. Only add people who agreed to it.</p>
+
   <form id="f"><label>LinkedIn link<input name="li" placeholder="https://www.linkedin.com/in/..." required></label>
+
   <label>Instagram link (public account)<input name="ig" placeholder="https://www.instagram.com/..." required></label>
+
   <label>Gender<select name="g"><option value="woman">Woman</option><option value="man">Man</option></select></label>
+
   <div><button class="btn" id="go">Create agent</button></div></form><div id="jobbox"></div>`;
-  document.getElementById("f").onsubmit=e=>{e.preventDefault();const f=e.target;
+
+  document.getElementById("f").onsubmit=e=>{
+    e.preventDefault();
+    const f=e.target;
+
     document.getElementById("go").disabled=true;
-    track(api("/api/people",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linkedin_url:f.li.value,instagram_url:f.ig.value,gender:f.g.value})}),
-      document.getElementById("jobbox"),j=>{location.hash="#/p/"+j.person_id+"/matches";});
-    setTimeout(()=>{document.getElementById("go").disabled=false},4000);};
+
+    track(
+      api("/api/people",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          linkedin_url:f.li.value,
+          instagram_url:f.ig.value,
+          gender:f.g.value
+        })
+      }),
+      document.getElementById("jobbox"),
+      j=>{location.hash="#/p/"+j.person_id+"/matches";}
+    );
+
+    setTimeout(()=>{
+      document.getElementById("go").disabled=false;
+    },4000);
+  };
+
 }
 
+
 function route(){
-  const h=location.hash.slice(1)||"/",p=h.split("/");window.scrollTo(0,0);
+
+  const h=location.hash.slice(1)||"/",p=h.split("/");
+  window.scrollTo(0,0);
+
   let r;
+
   if(p[1]==="p"&&p[2])r=profile(p[2],p[3]);
   else if(p[1]==="d"&&p[2])r=dateView(p[2]);
   else if(p[1]==="add")r=add();
   else r=home();
+
   if(r&&r.catch)r.catch(fail);
+
 }
-addEventListener("hashchange",route);route();
+
+addEventListener("hashchange",route);
+route();
+
 </script>
+
 </body>
 </html>
