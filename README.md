@@ -30,3 +30,6 @@ python -m uvicorn app:app
 Tables: `people(id, name, linkedin_url, instagram_url, gender, profile, sources)` and `dates(id, a_id, b_id, transcript, a_score, b_score, a_note, b_note, mutual, a_plan, b_plan, a_detail, b_detail)`.
 
 All people in the demo agreed to be included.
+
+live url : https://agentic-dating-x4wb.onrender.com/
+
